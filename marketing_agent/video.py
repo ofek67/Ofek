@@ -114,6 +114,8 @@ def _cover(img: Image.Image, size: tuple[int, int]) -> Image.Image:
 def _text_layer(size, text: str, text_color, font_size: int) -> Image.Image:
     w, h = size
     layer = Image.new("RGBA", size, (0, 0, 0, 0))
+    if not text.strip():
+        return layer
     draw = ImageDraw.Draw(layer)
     font = _font(font_size)
     lines = _wrap(draw, text, font, int(w * 0.84))
@@ -175,15 +177,24 @@ def make_video(
     prepared = []
     for i, text in enumerate(slides):
         img_path = images[i] if i < len(images) and images[i] else None
-        if img_path and Path(img_path).exists():
+        big = (int(w * 1.12), int(h * 1.12))
+        if img_path and Path(img_path).exists() and not text.strip():
+            # שקופית בלי טקסט: מציגים את כל התמונה (למשל פלייר) על רקע מטושטש שלה
+            src = Image.open(img_path).convert("RGB")
+            bg = _cover(src, big).filter(ImageFilter.GaussianBlur(40))
+            bg = Image.blend(bg, Image.new("RGB", big, (0, 0, 0)), 0.45)
+            scale = min(w * 0.96 / src.width, h * 0.96 / src.height)
+            fg = src.resize((int(src.width * scale), int(src.height * scale)), Image.LANCZOS)
+            bg.paste(fg, ((big[0] - fg.width) // 2, (big[1] - fg.height) // 2))
+        elif img_path and Path(img_path).exists():
             bg = Image.open(img_path).convert("RGB")
             # מכינים תמונה קצת יותר גדולה בשביל אפקט זום
-            bg = _cover(bg, (int(w * 1.12), int(h * 1.12)))
+            bg = _cover(bg, big)
             bg = Image.blend(bg, Image.new("RGB", bg.size, (0, 0, 0)), 0.25)
         else:
             # מסובבים את הגרדיאנט בין שקופיות כדי ליצור גיוון
             a, b = (c1, c2) if i % 2 == 0 else (c2, c1)
-            bg = _gradient((int(w * 1.12), int(h * 1.12)), a, b)
+            bg = _gradient(big, a, b)
             glow = Image.new("RGBA", bg.size, (0, 0, 0, 0))
             gd = ImageDraw.Draw(glow)
             r = int(min(w, h) * 0.45)

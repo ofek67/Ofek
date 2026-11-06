@@ -72,7 +72,7 @@ TOOL_DEFINITIONS = [
                 "slides": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "הטקסט של כל שקופית, לפי הסדר. 3-8 שקופיות.",
+                    "description": "הטקסט של כל שקופית, לפי הסדר. 3-8 שקופיות. טקסט ריק (\"\") עם תמונה = מציגים את התמונה המלאה, למשל פלייר.",
                 },
                 "file_name": {"type": "string", "description": "שם קצר לקובץ, באנגלית, בלי סיומת."},
                 "video_format": {
