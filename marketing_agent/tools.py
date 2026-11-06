@@ -11,6 +11,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+from edit_video import edit_video as _edit_video
 from video import FORMATS, THEMES, make_video
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -90,6 +91,43 @@ TOOL_DEFINITIONS = [
                 "music": {"type": "string", "description": "אופציונלי: שם קובץ מוזיקה (mp3) מתוך assets/."},
             },
             "required": ["slides", "file_name"],
+        },
+    },
+    {
+        "name": "edit_video",
+        "description": (
+            "עורך סרטון קיים שהמשתמש צילם (קובץ בתיקייה assets/): מוסיף כיתובים בעברית בזמנים שבוחרים, "
+            "פס מיתוג, כרטיס סיום עם טלפון, חיתוך ומוזיקה. סרטוני אייפון ב-HDR מומרים אוטומטית לצבעים רגילים. "
+            "כדי לכסות משהו בסרטון (סימן מים, טלפון ישן), משתמשים בכיתוב עם style=band במיקום שלו."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "input_video": {"type": "string", "description": "שם הקובץ בתיקייה assets/, למשל clip-1.mov"},
+                "file_name": {"type": "string", "description": "שם קצר לקובץ התוצאה, באנגלית."},
+                "captions": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "text": {"type": "string"},
+                            "start": {"type": "number", "description": "שנייה שבה הכיתוב מופיע"},
+                            "end": {"type": "number", "description": "שנייה שבה הכיתוב נעלם"},
+                            "position": {"type": "string", "enum": ["top", "upper", "center", "lower", "bottom"]},
+                            "style": {"type": "string", "enum": ["card", "band", "plain"]},
+                            "bg": {"type": "string", "description": "צבע רקע hex, למשל #5B1A9A"},
+                        },
+                        "required": ["text", "start", "end"],
+                    },
+                },
+                "end_card_title": {"type": "string", "description": "כותרת כרטיס הסיום, למשל 'להזמנות - אופק'"},
+                "end_card_subtitle": {"type": "string"},
+                "end_card_phone": {"type": "string"},
+                "trim_start": {"type": "number", "description": "לחתוך מההתחלה (שניות)"},
+                "trim_end": {"type": "number", "description": "לסיים בשנייה הזאת"},
+                "music": {"type": "string", "description": "אופציונלי: קובץ mp3 מתוך assets/"},
+            },
+            "required": ["input_video", "file_name"],
         },
     },
     {
@@ -217,6 +255,31 @@ def create_video(
     return f"הסרטון נשמר: {Path(path).relative_to(BASE_DIR)}{note}"
 
 
+def edit_video(
+    input_video: str,
+    file_name: str,
+    captions: list[dict] | None = None,
+    end_card_title: str = "",
+    end_card_subtitle: str = "",
+    end_card_phone: str = "",
+    trim_start: float = 0.0,
+    trim_end: float | None = None,
+    music: str = "",
+) -> str:
+    src = _input_file(input_video)
+    if not src:
+        return f"לא מצאתי את {input_video} בתיקייה assets/. בקש מהמשתמש לשים שם את הסרטון."
+    out = OUTPUT_DIR / "videos" / f"{_stamp()}-{_safe_name(file_name, '.mp4')}"
+    out = out.with_suffix(".mp4")
+    end_card = None
+    if end_card_title or end_card_phone:
+        end_card = {"title": end_card_title, "subtitle": end_card_subtitle, "phone": end_card_phone}
+    print("   ✂️  עורך את הסרטון... זה יכול לקחת דקה")
+    path = _edit_video(src, str(out), captions or [], end_card, trim_start, trim_end,
+                       music_path=_input_file(music) if music else None)
+    return f"הסרטון הערוך נשמר: {Path(path).relative_to(BASE_DIR)}"
+
+
 def save_post(platform: str, title: str, content: str, image_or_video_idea: str = "") -> str:
     folder = OUTPUT_DIR / "posts"
     folder.mkdir(parents=True, exist_ok=True)
@@ -299,6 +362,7 @@ def list_outputs() -> str:
 
 HANDLERS = {
     "create_video": create_video,
+    "edit_video": edit_video,
     "save_post": save_post,
     "save_leads": save_leads,
     "read_leads": read_leads,
