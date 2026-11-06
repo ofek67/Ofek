@@ -1,0 +1,4 @@
+anthropic>=2.6.0
+pillow>=10.0
+python-bidi>=0.4
+imageio-ffmpeg>=0.5
